@@ -40,7 +40,7 @@ jobs:
   # ─── Push / PR / manual run ─────────────────────────────────────────────────
   test:
     name: "${{ github.event.inputs.suite || 'smoke' }} | ${{ github.event.inputs.browser || 'chromium' }}"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 30
     if: github.event_name != 'schedule'
 
@@ -105,7 +105,7 @@ jobs:
   publish-report:
     name: Publish Allure to GitHub Pages
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     permissions:
       contents: write
@@ -131,7 +131,7 @@ jobs:
   # ─── Nightly full regression (schedule only) ────────────────────────────────
   nightly-regression:
     name: "Nightly regression — ${{ matrix.browser }}"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     if: github.event_name == 'schedule'
     timeout-minutes: 60
     strategy:
