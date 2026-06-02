@@ -1,0 +1,15 @@
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="API Suite" verbose="1" parallel="methods" thread-count="4">
+
+    <listeners>
+        <listener class-name="com.framework.hooks.TestListener"/>
+        <listener class-name="com.framework.hooks.RetryListener"/>
+    </listeners>
+
+    <test name="API - User Management">
+        <classes>
+            <class name="com.framework.tests.api.UserApiTest"/>
+        </classes>
+    </test>
+
+</suite>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{28} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Framework logs at DEBUG for full traceability -->
+    <logger name="com.framework" level="DEBUG"/>
+
+    <!-- Silence noisy third-party libraries -->
+    <logger name="org.apache.http" level="WARN"/>
+    <logger name="io.netty" level="WARN"/>
+    <logger name="com.microsoft.playwright" level="INFO"/>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+
+</configuration>
