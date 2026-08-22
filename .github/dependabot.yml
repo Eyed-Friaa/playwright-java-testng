@@ -1,0 +1,51 @@
+# Keep Maven deps and GitHub Actions up to date.
+# Grouped updates cut PR noise for coordinated bumps (e.g. all Allure artifacts).
+version: 2
+updates:
+
+  - package-ecosystem: "maven"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Berlin"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "maven"
+    commit-message:
+      prefix: "deps"
+    groups:
+      allure:
+        patterns:
+          - "io.qameta.allure:*"
+      testing:
+        patterns:
+          - "org.testng:*"
+          - "org.assertj:*"
+          - "io.rest-assured:*"
+      logging:
+        patterns:
+          - "org.slf4j:*"
+          - "ch.qos.logback:*"
+      jackson:
+        patterns:
+          - "com.fasterxml.jackson.*:*"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Berlin"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "ci"
+    groups:
+      actions:
+        patterns:
+          - "*"

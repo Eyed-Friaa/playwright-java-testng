@@ -1,7 +1,7 @@
 # Playwright Java TestNG Framework
 
-[![CI](https://github.com/YOUR_USERNAME/playwright-java-testng/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/playwright-java-testng/actions/workflows/ci.yml)
-[![Allure Report](https://img.shields.io/badge/Allure-Report-orange)](https://YOUR_USERNAME.github.io/playwright-java-testng/)
+[![CI](https://github.com/Eyed-Friaa/playwright-java-testng/actions/workflows/ci.yml/badge.svg)](https://github.com/Eyed-Friaa/playwright-java-testng/actions/workflows/ci.yml)
+[![Allure Report](https://img.shields.io/badge/Allure-Report-orange)](https://Eyed-Friaa.github.io/playwright-java-testng/)
 [![Java](https://img.shields.io/badge/Java-17-blue)](https://openjdk.org/projects/jdk/17/)
 [![Playwright](https://img.shields.io/badge/Playwright-1.44-green)](https://playwright.dev/java/)
 [![TestNG](https://img.shields.io/badge/TestNG-7.10-red)](https://testng.org/)
