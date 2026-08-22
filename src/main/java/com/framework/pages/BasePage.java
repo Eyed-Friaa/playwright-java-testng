@@ -3,11 +3,14 @@ package com.framework.pages;
 import com.framework.utils.BrowserManager;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
+import com.microsoft.playwright.assertions.LocatorAssertions;
+import com.microsoft.playwright.assertions.PageAssertions;
 import com.microsoft.playwright.options.WaitForSelectorState;
 import io.qameta.allure.Step;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.framework.config.ConfigManager.get;
+import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 
 /**
  * Base class for all Page Objects.
@@ -105,8 +108,30 @@ public abstract class BasePage {
                 .setState(WaitForSelectorState.HIDDEN));
     }
 
-    protected void waitForNetworkIdle() {
-        page.waitForLoadState(com.microsoft.playwright.options.LoadState.NETWORKIDLE);
+    /**
+     * Wait for DOM to be interactive. Prefer this over the (removed) network-idle
+     * wait: SPAs with background polling never idle, making the old helper hang
+     * until timeout. When you truly need "no in-flight requests", use
+     * {@link Page#waitForResponse} scoped to the endpoint you care about.
+     */
+    protected void waitForDomReady() {
+        page.waitForLoadState(com.microsoft.playwright.options.LoadState.DOMCONTENTLOADED);
+    }
+
+    // ─── Web-first assertions ────────────────────────────────────────────────
+    // Prefer these over isVisible()/getText() in tests — they auto-retry until
+    // the framework timeout and produce far clearer failure messages.
+
+    protected LocatorAssertions expect(Locator locator) {
+        return assertThat(locator);
+    }
+
+    protected LocatorAssertions expect(String selector) {
+        return assertThat(locator(selector));
+    }
+
+    protected PageAssertions expectPage() {
+        return assertThat(page);
     }
 
     // ─── Page verification ────────────────────────────────────────────────────

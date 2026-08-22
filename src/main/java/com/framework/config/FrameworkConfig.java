@@ -70,4 +70,12 @@ public interface FrameworkConfig extends Config {
     @Key("parallel.threads")
     @DefaultValue("4")
     int parallelThreads();
+
+    @Key("locale")
+    @DefaultValue("en-US")
+    String locale();
+
+    @Key("timezone.id")
+    @DefaultValue("UTC")
+    String timezoneId();
 }
