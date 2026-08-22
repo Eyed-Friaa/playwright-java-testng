@@ -1,9 +1,10 @@
 package com.framework.utils;
 
 import com.framework.config.ConfigManager;
+import com.framework.config.FrameworkConfig;
 import com.microsoft.playwright.*;
-import com.microsoft.playwright.BrowserType.LaunchOptions;
 import com.microsoft.playwright.Browser.NewContextOptions;
+import com.microsoft.playwright.BrowserType.LaunchOptions;
 import io.qameta.allure.Allure;
 import lombok.extern.slf4j.Slf4j;
 
@@ -13,24 +14,36 @@ import java.util.Arrays;
 
 /**
  * Thread-local Playwright lifecycle manager.
- * Each thread owns its own Playwright → Browser → BrowserContext → Page stack.
- * Safe for TestNG parallel execution (methods or classes).
+ *
+ * Split lifecycle (recommended Playwright pattern):
+ *   - {@link #initSharedBrowser()}  → once per thread (per class), reuses Playwright + Browser
+ *   - {@link #initTestContext(String)} → per test method, fresh BrowserContext + Page
+ *   - {@link #tearDownTestContext(boolean, String)} → per test method
+ *   - {@link #tearDownSharedBrowser()} → once per thread (per class)
+ *
+ * BaseTest wires these to @BeforeClass/@AfterClass and @BeforeMethod/@AfterMethod.
+ * A per-thread Browser is safe under TestNG parallel="methods" because each
+ * thread owns its own stack; a per-thread Browser under parallel="classes" is
+ * strictly better (one browser process per class, not per method).
  */
 @Slf4j
 public final class BrowserManager {
 
-    private static final ThreadLocal<Playwright> playwrightTL  = new ThreadLocal<>();
-    private static final ThreadLocal<Browser>    browserTL     = new ThreadLocal<>();
-    private static final ThreadLocal<BrowserContext> contextTL = new ThreadLocal<>();
-    private static final ThreadLocal<Page>       pageTL        = new ThreadLocal<>();
+    private static final ThreadLocal<Playwright>     playwrightTL = new ThreadLocal<>();
+    private static final ThreadLocal<Browser>        browserTL    = new ThreadLocal<>();
+    private static final ThreadLocal<BrowserContext> contextTL    = new ThreadLocal<>();
+    private static final ThreadLocal<Page>           pageTL       = new ThreadLocal<>();
 
     private BrowserManager() {}
 
-    // ─── Lifecycle ────────────────────────────────────────────────────────────
+    // ─── Shared lifecycle (per class / per thread) ────────────────────────────
 
-    public static void initBrowser() {
-        var cfg = ConfigManager.get();
-        log.info("Initialising browser: {} | headless={}", cfg.browser(), cfg.headless());
+    /** Idempotent: safe to call from @BeforeClass or @BeforeMethod. */
+    public static void initSharedBrowser() {
+        if (browserTL.get() != null) return;
+
+        FrameworkConfig cfg = ConfigManager.get();
+        log.info("Starting browser: {} | headless={}", cfg.browser(), cfg.headless());
 
         Playwright playwright = Playwright.create();
         playwrightTL.set(playwright);
@@ -51,12 +64,32 @@ public final class BrowserManager {
             default        -> playwright.chromium().launch(launchOptions);
         };
         browserTL.set(browser);
+    }
+
+    public static void tearDownSharedBrowser() {
+        closeSilently(browserTL.get());
+        closeSilently(playwrightTL.get());
+        browserTL.remove();
+        playwrightTL.remove();
+        log.debug("Browser destroyed on thread {}", Thread.currentThread().getId());
+    }
+
+    // ─── Per-test lifecycle ───────────────────────────────────────────────────
+
+    public static void initTestContext(String testName) {
+        FrameworkConfig cfg = ConfigManager.get();
+        Browser browser = browserTL.get();
+        if (browser == null) {
+            // Belt-and-braces: callable directly from @BeforeMethod with no @BeforeClass.
+            initSharedBrowser();
+            browser = browserTL.get();
+        }
 
         NewContextOptions contextOptions = new NewContextOptions()
                 .setViewportSize(cfg.viewportWidth(), cfg.viewportHeight())
                 .setIgnoreHTTPSErrors(true)
-                .setLocale("de-DE")
-                .setTimezoneId("Europe/Berlin");
+                .setLocale(cfg.locale())
+                .setTimezoneId(cfg.timezoneId());
 
         if (cfg.videoOnFailure()) {
             contextOptions.setRecordVideoDir(Paths.get("target/videos/"));
@@ -75,38 +108,31 @@ public final class BrowserManager {
 
         contextTL.set(context);
         pageTL.set(context.newPage());
-
-        log.debug("Browser stack initialised on thread {}", Thread.currentThread().getId());
     }
 
-    /**
-     * Tears down the browser stack. On failure, captures a single screenshot
-     * (saved to disk + attached to Allure) and stops the Playwright trace.
-     */
-    public static void tearDownBrowser(boolean testPassed, String testName) {
-        var cfg = ConfigManager.get();
+    /** Captures artifacts on failure and always closes the per-test context. */
+    public static void tearDownTestContext(boolean testPassed, String testName) {
+        FrameworkConfig cfg = ConfigManager.get();
+        BrowserContext context = contextTL.get();
         try {
             if (!testPassed) {
                 captureFailureArtifacts(cfg, testName);
+            } else if (cfg.traceOnFailure() && context != null) {
+                // Stop tracing on pass without writing to disk — otherwise the buffer
+                // leaks memory when the context lives inside a long-running Browser.
+                context.tracing().stop();
             }
         } catch (Exception e) {
             log.warn("Error during failure-artifact capture: {}", e.getMessage());
         } finally {
             closeSilently(pageTL.get());
             closeSilently(contextTL.get());
-            closeSilently(browserTL.get());
-            closeSilently(playwrightTL.get());
-
             pageTL.remove();
             contextTL.remove();
-            browserTL.remove();
-            playwrightTL.remove();
-
-            log.debug("Browser stack destroyed on thread {}", Thread.currentThread().getId());
         }
     }
 
-    private static void captureFailureArtifacts(com.framework.config.FrameworkConfig cfg, String testName) {
+    private static void captureFailureArtifacts(FrameworkConfig cfg, String testName) {
         Page page = pageTL.get();
         BrowserContext context = contextTL.get();
 
@@ -128,12 +154,28 @@ public final class BrowserManager {
         }
     }
 
+    // ─── Deprecated single-shot API (kept for existing tests) ─────────────────
+
+    /** @deprecated use {@link #initSharedBrowser()} + {@link #initTestContext(String)}. */
+    @Deprecated
+    public static void initBrowser() {
+        initSharedBrowser();
+        initTestContext("legacy");
+    }
+
+    /** @deprecated use {@link #tearDownTestContext(boolean, String)} + {@link #tearDownSharedBrowser()}. */
+    @Deprecated
+    public static void tearDownBrowser(boolean testPassed, String testName) {
+        tearDownTestContext(testPassed, testName);
+        tearDownSharedBrowser();
+    }
+
     // ─── Accessors ────────────────────────────────────────────────────────────
 
     public static Page getPage() {
         Page page = pageTL.get();
         if (page == null) {
-            throw new IllegalStateException("Page not initialised — call BrowserManager.initBrowser() first");
+            throw new IllegalStateException("Page not initialised — call BrowserManager.initTestContext() first");
         }
         return page;
     }

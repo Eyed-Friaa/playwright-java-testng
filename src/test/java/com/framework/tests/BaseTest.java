@@ -3,7 +3,9 @@ package com.framework.tests;
 import com.framework.utils.BrowserManager;
 import lombok.extern.slf4j.Slf4j;
 import org.testng.ITestResult;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 
 import java.lang.reflect.Method;
@@ -11,21 +13,29 @@ import java.lang.reflect.Method;
 /**
  * Base class for all UI tests.
  *
- * Responsibilities:
- * - Browser lifecycle (@BeforeMethod / @AfterMethod)
- * - Delegates failure capture (screenshot + Allure attachment + trace)
- *   to {@link BrowserManager#tearDownBrowser}, so it happens in exactly
- *   one place.
+ * Split lifecycle for perf: Playwright + Browser are launched once per class
+ * (~1s saved per test), while each @Test gets its own fresh BrowserContext
+ * + Page (still fully isolated — no cookies/storage bleed).
  *
  * Retry is applied globally via RetryListener — no per-test config needed.
  */
 @Slf4j
 public abstract class BaseTest {
 
+    @BeforeClass(alwaysRun = true)
+    public void setUpClass() {
+        BrowserManager.initSharedBrowser();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDownClass() {
+        BrowserManager.tearDownSharedBrowser();
+    }
+
     @BeforeMethod(alwaysRun = true)
     public void setUp(Method method) {
         log.info("▶ Starting test: {}", method.getName());
-        BrowserManager.initBrowser();
+        BrowserManager.initTestContext(method.getName());
     }
 
     @AfterMethod(alwaysRun = true)
@@ -39,6 +49,6 @@ public abstract class BaseTest {
             log.error("✗ FAILED: {}", testName);
         }
 
-        BrowserManager.tearDownBrowser(passed, testName);
+        BrowserManager.tearDownTestContext(passed, testName);
     }
 }
