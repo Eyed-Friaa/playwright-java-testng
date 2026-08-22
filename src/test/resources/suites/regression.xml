@@ -4,6 +4,8 @@
     <listeners>
         <listener class-name="com.framework.hooks.TestListener"/>
         <listener class-name="com.framework.hooks.RetryListener"/>
+        <!-- Filters methods to a shard when -Dshard.total > 1; no-op otherwise. -->
+        <listener class-name="com.framework.hooks.ShardInterceptor"/>
     </listeners>
 
     <test name="UI Tests">
