@@ -124,6 +124,24 @@ public abstract class BasePage {
      */
     public abstract boolean isLoaded();
 
+    // ─── Visual regression / accessibility ────────────────────────────────────
+    // Thin sugar so page objects can express intent without importing the utils.
+
+    @Step("Visual check: {name}")
+    protected void assertVisualMatches(String name) {
+        com.framework.utils.VisualRegression.assertPageMatches(page, name);
+    }
+
+    @Step("Visual check element {selector}: {name}")
+    protected void assertVisualMatches(String selector, String name) {
+        com.framework.utils.VisualRegression.assertLocatorMatches(locator(selector), name);
+    }
+
+    @Step("Accessibility scan — no serious+ violations")
+    protected void assertNoSeriousA11yViolations() {
+        com.framework.utils.Accessibility.assertNoSeriousViolations(page);
+    }
+
     // ─── Locator factory ──────────────────────────────────────────────────────
 
     /**
