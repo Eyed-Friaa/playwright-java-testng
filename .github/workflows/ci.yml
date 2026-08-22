@@ -160,15 +160,22 @@ jobs:
           keep_files: true
 
   # ─── Nightly full regression (schedule only) ────────────────────────────────
+  # Matrix on browser × shard so total wall-clock ≈ (regression / SHARD_TOTAL).
+  # ShardInterceptor keys methods by fully-qualified name, so re-running one
+  # shard hits the same tests every time — helpful for reproducing flakes.
   nightly-regression:
-    name: "Nightly regression — ${{ matrix.browser }}"
+    name: "Nightly — ${{ matrix.browser }} shard ${{ matrix.shard }}/4"
     runs-on: ubuntu-22.04
     if: github.event_name == 'schedule'
-    timeout-minutes: 60
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
         browser: [ chromium, firefox, webkit ]
+        shard:   [ 1, 2, 3, 4 ]
+
+    env:
+      SHARD_TOTAL: 4
 
     steps:
 
@@ -191,17 +198,43 @@ jobs:
       - name: Install Playwright browsers
         run: mvn -B exec:java -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.args="install --with-deps ${{ matrix.browser }}" --no-transfer-progress
 
-      - name: Run regression on ${{ matrix.browser }}
+      - name: Run regression shard ${{ matrix.shard }}/${{ env.SHARD_TOTAL }} on ${{ matrix.browser }}
+        # ShardInterceptor uses a 0-based index; matrix values are 1-based for readability.
         run: |
           mvn -B test -Pregression \
             -Dbrowser=${{ matrix.browser }} \
             -Dheadless=true \
+            -Dshard.total=${{ env.SHARD_TOTAL }} \
+            -Dshard.index=$(( ${{ matrix.shard }} - 1 )) \
             --no-transfer-progress
 
-      - name: Upload results
+      - name: Upload shard results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: nightly-results-${{ matrix.browser }}
+          name: nightly-results-${{ matrix.browser }}-shard${{ matrix.shard }}
           path: target/allure-results/
           retention-days: 14
+
+  # Merge every shard's Allure results into one unified per-run artifact so the
+  # report shows the full regression across browsers, not one shard slice.
+  nightly-merge:
+    name: Merge nightly Allure results
+    needs: nightly-regression
+    runs-on: ubuntu-22.04
+    if: github.event_name == 'schedule' && always()
+    steps:
+
+      - name: Download all shard results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: nightly-results-*
+          path: merged
+          merge-multiple: true
+
+      - name: Upload merged results
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-results-merged
+          path: merged/
+          retention-days: 30
