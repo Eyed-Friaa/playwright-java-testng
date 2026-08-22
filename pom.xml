@@ -80,6 +80,13 @@
             <version>${rest-assured.version}</version>
         </dependency>
 
+        <!-- Allure ↔ REST Assured bridge: attaches request/response to each step. -->
+        <dependency>
+            <groupId>io.qameta.allure</groupId>
+            <artifactId>allure-rest-assured</artifactId>
+            <version>${allure.version}</version>
+        </dependency>
+
         <!-- ===== ASSERTIONS ===== -->
         <dependency>
             <groupId>org.assertj</groupId>
