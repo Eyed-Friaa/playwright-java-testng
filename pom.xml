@@ -34,7 +34,7 @@
         <owner.version>1.0.12</owner.version>
 
         <!-- Plugin versions -->
-        <surefire.version>3.2.5</surefire.version>
+        <surefire.version>3.5.6</surefire.version>
         <exec-plugin.version>3.2.0</exec-plugin.version>
         <compiler-plugin.version>3.13.0</compiler-plugin.version>
         <allure-maven.version>3.0.3</allure-maven.version>
